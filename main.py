@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Union
 from typing import Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uuid
 from Models.Models import StudyLog, StudyLogInput
@@ -48,16 +48,20 @@ def users():
 
 
 studyloglist={}
+from datetime import datetime
+
 @app.post("/studylog/create")
-def studylogcreation(studylog : StudyLogInput):
+def studylogcreation(studylog: StudyLogInput):
     uuid_generado = uuid.uuid4()
-    register = StudyLog(asignatura=studylog.asignatura, inicio=datetime.now().date(), fin=None, id=uuid_generado)
-    studyloglist[uuid_generado] = register
+    # Guardamos la fecha y hora actual como datetime
+    register = StudyLog(asignatura=studylog.asignatura, inicio=datetime.now(), fin=None, id=uuid_generado)
+    studyloglist[str(uuid_generado)] = register
     return {"Code:" : "OK", "ID" : uuid_generado}
 
 
 @app.post("/studylog/stop/{id}")
 def studylogcreation(id : str):
+    print(studyloglist)
     stop_moement = datetime.now()
     studyloglist[id].fin = stop_moement
     print(studyloglist)
@@ -65,11 +69,16 @@ def studylogcreation(id : str):
 
 
 @app.get("/studylog/time/{id}")
-def calculatetime(id : str):
+def calculatetime(id: str):
+    
     obj = studyloglist[id]
+    if obj.fin == None:
+        raise HTTPException(status_code=400, detail="STOP BEFORE CALCULATING")       
+    # Calculamos la diferencia entre las fechas completas (incluyendo hora)
     diferencia = obj.fin - obj.inicio
 
     # Convertir la diferencia a horas y minutos
-    horas = diferencia.days * 24 + diferencia.seconds // 3600
-    minutos = (diferencia.seconds % 3600) // 60    
-    return {"asignatura": obj.asignatura, "Horas" : horas, "minutos" : minutos, "ID" : id}
+    horas = diferencia.total_seconds() // 3600  # Total de segundos dividido entre 3600 segundos (1 hora)
+    minutos = (diferencia.total_seconds() % 3600) // 60  # Resto de segundos dividido entre 60 para obtener minutos
+    
+    return {"asignatura": obj.asignatura, "Horas": int(horas), "Minutos": int(minutos), "ID": id}
